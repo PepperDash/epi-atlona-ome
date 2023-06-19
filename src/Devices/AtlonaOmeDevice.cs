@@ -128,9 +128,6 @@ namespace AtlonaOme.Devices
                 Polls.Add(atlonaRoutingPoll.PollRouteStatus);
             }
             Polls.Add(PollPower);
-
-
-            Polls = Polls.Concat(DeviceInfoPolls).ToList();
         }
 
         private void ProcessBaseFeedbackMessage(string message)
