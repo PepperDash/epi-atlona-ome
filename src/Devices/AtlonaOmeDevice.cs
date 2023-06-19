@@ -100,6 +100,13 @@ namespace AtlonaOme.Devices
 
         private void socket_ConnectionChange(object sender, GenericSocketStatusChageEventArgs args)
         {
+            var telnetNegotation = new byte[] { 0xFF, 0xFE, 0x01, 0xFF, 0xFE, 0x21, 0xFF, 0xFC, 0x01, 0xFF, 0xFC, 0x03 };
+
+            if (args.Client.IsConnected)
+            {
+                args.Client.SendBytes(telnetNegotation);
+            }
+
             if (ConnectFeedback != null)
                 ConnectFeedback.FireUpdate();
 
