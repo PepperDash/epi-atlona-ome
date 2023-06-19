@@ -22,7 +22,7 @@ namespace AtlonaOme.Devices.Receivers
 	/// <example>
 	/// "EssentialsPluginDeviceTemplate" renamed to "SamsungMdcDevice"
 	/// </example>
-    public class AtlonaOmeRx21Device : AtlonaOmeDevice, IHdBaseTInput1, IHdmiInput2, IRoutingFeedback
+    public class AtlonaOmeRx21Device : AtlonaOmeDevice, IHdBaseTInput1, IHdmiInput2, IRoutingFeedback, IAtlonaRoutingPoll
     {
         public ushort CurrentInput { get; private set; }
         private bool[] InputSync { get; set; }
@@ -137,12 +137,12 @@ namespace AtlonaOme.Devices.Receivers
             }
         }
 
-        private void PollRouteStatus()
+        public void PollRouteStatus()
         {
             SendText("Status");
         }
 
-        private void PollInputStatus()
+        public void PollInputStatus()
         {
             SendText("InputStatus");
         }
@@ -170,20 +170,6 @@ namespace AtlonaOme.Devices.Receivers
             if (inputIndex <= -1) return;
             CurrentInput = (ushort)(inputIndex + 1);
             AudioVideoSourceNumericFeedback.FireUpdate();
-        }
-
-
-        protected override void BuildPollArray()
-        {
-            PollArray = new Action[]
-	        {
-                PollPower,
-                PollInputStatus,
-                PollRouteStatus,
-                GetIpConfig,
-                GetModel,
-                GetFirmware
-	        };
         }
 
         public void HdBaseTInput1()

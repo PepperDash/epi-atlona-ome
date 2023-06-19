@@ -1,4 +1,5 @@
 ﻿using PepperDash.Essentials.Core;
+using PepperDash.Essentials.Core.DeviceInfo;
 
 namespace AtlonaOme
 {
@@ -47,5 +48,24 @@ namespace AtlonaOme
     public interface IRoutingFeedback : IRoutingNumeric
     {
         IntFeedback AudioVideoSourceNumericFeedback { get;} 
+    }
+
+    internal interface IAtlonaDeviceInfoProvider : IDeviceInfoProvider
+    {
+        void GetIpConfig();
+        void GetModel();
+        void GetFirmware();
+    }
+
+    internal interface IAtlonaHasPowerControlWithFeedback : IHasPowerControlWithFeedback
+    {
+        void PollPower();
+    }
+
+    internal interface IAtlonaRoutingPoll
+    {
+        void PollInputStatus();
+        void PollRouteStatus();
+
     }
 }

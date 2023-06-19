@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using AtlonaOme.Config;
 using AtlonaOme.JoinMaps;
@@ -10,6 +13,7 @@ using PepperDash.Essentials.Core.Bridges;
 using PepperDash.Essentials.Core.DeviceInfo;
 using PepperDash.Essentials.Core.Queues;
 using Crestron.SimplSharpPro.DeviceSupport;
+using PepperDash.Essentials.Devices.Common.VideoCodec.Cisco;
 
 namespace AtlonaOme.Devices
 {
@@ -25,11 +29,14 @@ namespace AtlonaOme.Devices
 
         public readonly EndpointType EndpointType;
 
-        protected Action[] PollArray { get; set; }
+        protected List<Action> Polls { get; set; } 
+
+        private List<Action> DeviceInfoPolls { get; set; } 
 
         public bool PowerIsOn { get; protected set; }
 
         private CTimer _pollRing;
+        private CTimer _deviceInfoPollRing;
 
         protected string LastCommand { get; set; }
 
@@ -51,8 +58,21 @@ namespace AtlonaOme.Devices
             SerialNumber = config.DeviceSerialNumber;
             MacAddress = config.DeviceMacAddress;
 
+            DeviceInfoPolls = new List<Action>
+            {
+                GetIpConfig,
+                GetFirmware,
+                GetModel,
+                GetHostname
+            };
+
+            BuildPolls();
+
+            _pollRing = CreatePollTimer(Polls);
+            _deviceInfoPollRing = CreatePollTimer(DeviceInfoPolls);
+
             _comms = comms;
-            _commsMonitor = new GenericCommunicationMonitor(this, _comms, config.PollTimeMs, config.WarningTimeoutMs, config.ErrorTimeoutMs, Poll);
+            _commsMonitor = new GenericCommunicationMonitor(this, _comms, config.PollTimeMs, config.WarningTimeoutMs, config.ErrorTimeoutMs, () => _pollRing.Reset(750));
 
             var socket = _comms as ISocketStatus;
             if (socket != null)
@@ -68,7 +88,12 @@ namespace AtlonaOme.Devices
             var commsGather = new CommunicationGather(_comms, CommsRxDelimiter);
             commsGather.LineReceived += Handle_LineRecieved;
 
-            AddPostActivationAction(BuildPollArray);
+            _commsMonitor.StatusChange += (s, a) =>
+            {
+                if (a == null) return;
+                if (a.Status != MonitorStatus.IsOk) return;
+                _deviceInfoPollRing.Reset(2500);
+            };
 
         }
         
@@ -93,12 +118,19 @@ namespace AtlonaOme.Devices
         /// <param name="message"></param>
         protected abstract void ProcessFeedbackMessage(string message);
 
-        protected virtual void BuildPollArray()
+        protected void BuildPolls()
         {
-            PollArray = new Action[]
+            Polls = new List<Action>();
+            var atlonaRoutingPoll = this as IAtlonaRoutingPoll;
+            if (atlonaRoutingPoll != null)
             {
-                PollPower
-            };
+                Polls.Add(atlonaRoutingPoll.PollInputStatus);
+                Polls.Add(atlonaRoutingPoll.PollRouteStatus);
+            }
+            Polls.Add(PollPower);
+
+
+            Polls = Polls.Concat(DeviceInfoPolls).ToList();
         }
 
         private void ProcessBaseFeedbackMessage(string message)
@@ -106,7 +138,7 @@ namespace AtlonaOme.Devices
             if (LastCommand.Equals("Version", StringComparison.OrdinalIgnoreCase))
             {
                 FirmwareVersion = message;
-                UpdateDeviceInfo();
+                OnDeviceInfoChanged();
                 return;
             }
             if (LastCommand.Equals("Type", StringComparison.OrdinalIgnoreCase))
@@ -148,13 +180,14 @@ namespace AtlonaOme.Devices
             var matches = regex.Matches(message);
             if (matches.Count < 1) return;
             IpAddress = matches[0].Value;
-            UpdateDeviceInfo();
+            OnDeviceInfoChanged();
         }
 
         private void ParseHostnameInformation(string message)
         {
             const string prefix = "RHostName";
             Hostname = PullDataFromPrefix(prefix, message);
+            OnDeviceInfoChanged();
         }
 
         /// <summary>
@@ -171,51 +204,70 @@ namespace AtlonaOme.Devices
             _comms.SendText(string.Format("{0}{1}", text, CommsTxDelimiter));
         }
 
-
+        /*
         /// <summary>
         /// Polls the device
         /// </summary>
         /// <remarks>
         /// Poll method is used by the communication monitor.  Update the poll method as needed for the plugin being developed
         /// </remarks>
-        public void Poll()
+        public void Poll(List<Action> polls, CTimer timer)
         {
-            if (_pollRing != null) return;
-            _pollRing = new CTimer(o => ProcessPoll(0), 0);
+            if (timer != null) return;
+            timer = new CTimer(o => ProcessPoll(polls, 0, timer), 0);
         }
 
-        private void ProcessPoll(int index)
+        private void ProcessPoll(ICollection polls, int index, CTimer timer)
         {
-            if (index >= PollArray.Length)
+            if (index >= polls.Count)
             {
-                _pollRing = null;
+                timer = null;
                 return;
             }
             var accessor = index;
-            var action = PollArray[accessor];
+            var action = Polls.ElementAtOrDefault(accessor);
             if(action != null) action.Invoke();
-            _pollRing = new CTimer(o => ProcessPoll(accessor + 1), 750);
+            timer = new CTimer(o => ProcessPoll(polls, accessor + 1, timer), 750);
         }
+         */
+
+        public CTimer CreatePollTimer(List<Action> polls)
+        {
+            CTimer timer = null;
+            timer = new CTimer(_ =>
+            {
+                polls.ForEach(p => p.Invoke());
+                timer.Dispose();
+            }, 0, Timeout.Infinite);
+
+            return timer;
+        }
+        
 
 
-        protected void PollPower()
+        public void PollPower()
         {
             SendText("PWSTA");
         }
 
-        protected void GetIpConfig()
+        public void GetIpConfig()
         {
             SendText("IPCFG");
         }
 
-        protected void GetModel()
+        public void GetModel()
         {
             SendText("Model");
         }
 
-        protected void GetFirmware()
+        public void GetFirmware()
         {
             SendText("Version");
+        }
+
+        public void GetHostname()
+        {
+            SendText("RHostname");
         }
 
         protected string PullDataFromPrefix(string prefix, string message)
@@ -388,7 +440,7 @@ namespace AtlonaOme.Devices
 
         public event DeviceInfoChangeHandler DeviceInfoChanged;
 
-        public void UpdateDeviceInfo()
+        private void OnDeviceInfoChanged()
         {
             DeviceInfo = new DeviceInfo
             {
@@ -402,6 +454,12 @@ namespace AtlonaOme.Devices
             var changeEvent = DeviceInfoChanged;
             if (changeEvent == null) return;
             DeviceInfoChanged(this, args);
+
+        }
+
+        public void UpdateDeviceInfo()
+        {
+            _deviceInfoPollRing.Reset(750);
         }
 
         #endregion

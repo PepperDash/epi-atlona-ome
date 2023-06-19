@@ -22,7 +22,7 @@ namespace AtlonaOme.Devices.Transmitters
 	/// <example>
 	/// "EssentialsPluginDeviceTemplate" renamed to "SamsungMdcDevice"
 	/// </example>
-    public class AtlonaOmeSt31ADevice : AtlonaOmeDevice, ITxRoutingWithFeedback, IHdmiInput2, IHdmiInput3, IUsbCInput1
+    public class AtlonaOmeSt31ADevice : AtlonaOmeDevice, ITxRoutingWithFeedback, IAtlonaRoutingPoll, IHdmiInput2, IHdmiInput3, IUsbCInput1
     {
         /// <summary>
         /// It is often desirable to store the config
@@ -166,12 +166,12 @@ namespace AtlonaOme.Devices.Transmitters
             }
         }
 
-	    private void PollRouteStatus()
+	    public void PollRouteStatus()
 	    {
 	        SendText("Status");
 	    }
 
-	    private void PollInputStatus()
+	    public void PollInputStatus()
 	    {
 	        SendText("InputStatus");
 	    }
@@ -200,20 +200,6 @@ namespace AtlonaOme.Devices.Transmitters
 	        CurrentInput = (ushort) (inputIndex + 1);
 	        VideoSourceNumericFeedback.FireUpdate();
 	        AudioSourceNumericFeedback.FireUpdate();
-	    }
-
-
-	    protected override void BuildPollArray()
-	    {
-	        PollArray = new Action[]
-	        {
-                PollPower,
-                PollInputStatus,
-                PollRouteStatus,
-                GetIpConfig,
-                GetModel,
-                GetFirmware
-	        };
 	    }
     }
 }

@@ -39,10 +39,10 @@ namespace AtlonaOme.Factories
 		/// </example>
         private readonly List<string> _omeRx21TypeNames = new List<string> { "AtOmeRx21", "AT-OME-RX21", "RX21", "OMERX21" };
         private readonly List<string> _omeSt31ATypeNames = new List<string> { "AtOmeSt31A", "AT-OME-ST31A", "ST31A", "OMEST31A" };
-        
+
         public AtlonaOmeFactory()
         {
-			MinimumEssentialsFrameworkVersion = "1.13.4";
+            MinimumEssentialsFrameworkVersion = "1.13.4";
 
 
             //If you add more devices, create a new list of strings for each device type, and then concat them like I did here - makes it easier to search for them.
