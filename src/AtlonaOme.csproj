@@ -108,6 +108,7 @@
     <Compile Include="JoinMaps\AtlonaRxJoinMap.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Devices\Transmitters\AtlonaOmeSt31ADevice.cs" />
+    <Compile Include="StringExtensions.cs" />
     <None Include="Properties\ControlSystem.cfg" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CompactFramework.CSharp.targets" />

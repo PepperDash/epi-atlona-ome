@@ -27,6 +27,9 @@ namespace AtlonaOme.Devices
         public string Model { get; protected set; }
         public const string Make = "Atlona";
 
+        private static char _newLine = CrestronEnvironment.NewLine.ToCharArray().First();
+
+
         public readonly EndpointType EndpointType;
 
         protected List<Action> Polls { get; set; } 
@@ -38,6 +41,8 @@ namespace AtlonaOme.Devices
         private CTimer _pollRing;
         private CTimer _deviceInfoPollRing;
 
+        private readonly string _connectionStringFromConfig;
+
         protected string LastCommand { get; set; }
 
         public StringFeedback ModelFeedback { get; protected set; }
@@ -47,6 +52,7 @@ namespace AtlonaOme.Devices
         protected AtlonaOmeDevice(string key, string name, AtlonaOmeConfigObject config, IBasicCommunication comms, EndpointType endpointType) : base(key, name)
         {
             EndpointType = endpointType;
+            _connectionStringFromConfig = config.Control.TcpSshProperties.Address;
             _receiveQueue = new GenericQueue(key + "-rxqueue");  // If you need to set the thread priority, use one of the available overloaded constructors.
 
             ConnectFeedback = new BoolFeedback(() => Connect);
@@ -60,7 +66,6 @@ namespace AtlonaOme.Devices
 
             DeviceInfoPolls = new List<Action>
             {
-                GetIpConfig,
                 GetFirmware,
                 GetModel,
                 GetHostname
@@ -80,6 +85,7 @@ namespace AtlonaOme.Devices
                 // device comms is IP **ELSE** device comms is RS232
                 socket.ConnectionChange += socket_ConnectionChange;
                 Connect = true;
+                ResolveHostData();
             }
 
             // Only one of the below handlers should be necessary.  
@@ -96,7 +102,58 @@ namespace AtlonaOme.Devices
             };
 
         }
-        
+
+        private static string SanitizeIpAddress(string ipAddressIn)
+        {
+            try
+            {
+                var ipAddress = IPAddress.Parse(ipAddressIn.TrimStart('0'));
+                return ipAddress.ToString();
+            }
+            catch (Exception ex)
+            {
+                Debug.Console(0, "Unable to Santize Ip : {0}", ex.Message);
+                return ipAddressIn;
+            }
+        }
+
+        private string GetMacFromArpTable(string ipaddress)
+        {
+            var consoleResponse = string.Empty;
+            var macAddress = string.Empty;
+            var ipAddress = SanitizeIpAddress(ipaddress);
+            if (!CrestronConsole.SendControlSystemCommand("showarptable", ref consoleResponse)) return MacAddress;
+            if (string.IsNullOrEmpty(consoleResponse)) return MacAddress;
+
+            Debug.Console(2, "ConsoleResponse of 'showarptable' : {0}{1}", "\n", consoleResponse);
+
+            var myLines =
+                consoleResponse.Split(_newLine).ToList().Where(o => (o.Contains(':') && !o.Contains("Type", StringComparison.OrdinalIgnoreCase))).ToList();
+            foreach (var line in myLines)
+            {
+                var item = line;
+                var seperator = item.Contains('\t') ? '\t' : ' ';
+                var dataPoints = item.Split(seperator);
+                if (dataPoints == null || dataPoints.Length < 2) continue;
+                var lineIp = SanitizeIpAddress(dataPoints.First());
+                if (lineIp != ipAddress) continue;
+                macAddress = dataPoints.Last();
+                break;
+            }
+            MacAddress = macAddress;
+            return macAddress;
+        }
+
+        private void ResolveHostData()
+        {
+            var searchString = _connectionStringFromConfig;
+            if (string.IsNullOrEmpty(searchString)) return;
+            var hostEntry = Dns.GetHostEntry(searchString);
+            if (hostEntry == null) return;
+            IpAddress = hostEntry.AddressList.First().ToString();
+            Hostname = hostEntry.HostName;
+            GetMacFromArpTable(IpAddress);
+        }
 
         private void socket_ConnectionChange(object sender, GenericSocketStatusChageEventArgs args)
         {
@@ -207,33 +264,6 @@ namespace AtlonaOme.Devices
             LastCommand = text;
             _comms.SendText(string.Format("{0}{1}", text, CommsTxDelimiter));
         }
-
-        /*
-        /// <summary>
-        /// Polls the device
-        /// </summary>
-        /// <remarks>
-        /// Poll method is used by the communication monitor.  Update the poll method as needed for the plugin being developed
-        /// </remarks>
-        public void Poll(List<Action> polls, CTimer timer)
-        {
-            if (timer != null) return;
-            timer = new CTimer(o => ProcessPoll(polls, 0, timer), 0);
-        }
-
-        private void ProcessPoll(ICollection polls, int index, CTimer timer)
-        {
-            if (index >= polls.Count)
-            {
-                timer = null;
-                return;
-            }
-            var accessor = index;
-            var action = Polls.ElementAtOrDefault(accessor);
-            if(action != null) action.Invoke();
-            timer = new CTimer(o => ProcessPoll(polls, accessor + 1, timer), 750);
-        }
-         */
 
         public CTimer CreatePollTimer(List<Action> polls)
         {
