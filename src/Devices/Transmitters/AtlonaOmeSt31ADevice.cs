@@ -141,28 +141,40 @@ namespace AtlonaOme.Devices.Transmitters
         /// <param name="message"></param>
         protected override void ProcessFeedbackMessage(string message)
         {
-            if (LastCommand.Equals("status", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                var newMessage = message;
-                if (message.IndexOf(",", StringComparison.OrdinalIgnoreCase) > -1)
+                if (LastCommand.Equals("status", StringComparison.OrdinalIgnoreCase))
                 {
-                    newMessage = message.Substring(message.IndexOf(",", StringComparison.OrdinalIgnoreCase) + 1);
+                    Debug.Console(0, this, "ProcessRouteResponse 1");
+                    var newMessage = message;
+                    if (message.IndexOf(",", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        newMessage = message.Substring(message.IndexOf(",", StringComparison.OrdinalIgnoreCase) + 1);
+                    }
+                    ProcessRouteResponse(newMessage);
+                    return;
                 }
-                ProcessRouteResponse(newMessage);
-                return;
+                if (
+                    LastCommand.First()
+                        .ToString(CultureInfo.InvariantCulture)
+                        .Equals("x", StringComparison.OrdinalIgnoreCase) &&
+                    LastCommand[4].ToString(CultureInfo.InvariantCulture)
+                        .Equals("x", StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.Console(0, this, "ProcessRouteResponse 2");
+
+                    ProcessRouteResponse(message);
+                    return;
+                }
+                if (message.IndexOf("inputstatus", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    Debug.Console(0, this, "ProcessInputStatus");
+                    ProcessInputStatus(message);
+                }
             }
-            if (
-                LastCommand.First()
-                    .ToString(CultureInfo.InvariantCulture)
-                    .Equals("x", StringComparison.OrdinalIgnoreCase) &&
-                LastCommand[4].ToString(CultureInfo.InvariantCulture).Equals("x", StringComparison.OrdinalIgnoreCase))
+            catch (Exception ex)
             {
-                ProcessRouteResponse(message);
-                return;
-            }
-            if (message.IndexOf("inputstatus", StringComparison.OrdinalIgnoreCase) > -1)
-            {
-                ProcessInputStatus(message);
+                Debug.Console(0, this, "ProcessFeedbackMessage [St31A] Error : {0}", ex.Message);
             }
         }
 
@@ -193,13 +205,21 @@ namespace AtlonaOme.Devices.Transmitters
 
 	    private void ProcessRouteResponse(string message)
 	    {
-	        var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(message));
-	        if (newInput == null) return;
-	        var inputIndex = InputPorts.IndexOf(newInput);
-	        if (inputIndex <= -1) return;
-	        CurrentInput = (ushort) (inputIndex + 1);
-	        VideoSourceNumericFeedback.FireUpdate();
-	        AudioSourceNumericFeedback.FireUpdate();
+            try
+            {
+                var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(message));
+                if (newInput == null) return;
+                var inputIndex = InputPorts.IndexOf(newInput);
+                if (inputIndex <= -1) return;
+                CurrentInput = (ushort)(inputIndex + 1);
+                VideoSourceNumericFeedback.FireUpdate();
+                AudioSourceNumericFeedback.FireUpdate();
+            }
+            catch (Exception ex)
+            {
+                Debug.Console(0, this, "Error In Process Route Response : {0}", ex.Message);
+                throw;
+            }
 	    }
     }
 }

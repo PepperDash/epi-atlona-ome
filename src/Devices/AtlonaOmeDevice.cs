@@ -2,10 +2,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using AtlonaOme.Config;
 using AtlonaOme.JoinMaps;
 using Crestron.SimplSharp;
+using Crestron.SimplSharpPro.CrestronThread;
 using Newtonsoft.Json;
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
@@ -29,6 +31,7 @@ namespace AtlonaOme.Devices
 
         private static char _newLine = CrestronEnvironment.NewLine.ToCharArray().First();
 
+        private bool activated;
 
         public readonly EndpointType EndpointType;
 
@@ -54,28 +57,36 @@ namespace AtlonaOme.Devices
             EndpointType = endpointType;
             _connectionStringFromConfig = config.Control.TcpSshProperties.Address;
             _receiveQueue = new GenericQueue(key + "-rxqueue");  // If you need to set the thread priority, use one of the available overloaded constructors.
-
-            ConnectFeedback = new BoolFeedback(() => Connect);
-            OnlineFeedback = new BoolFeedback(() => _commsMonitor.IsOnline);
-            StatusFeedback = new IntFeedback(() => (int)_commsMonitor.Status);
-            ModelFeedback = new StringFeedback(() => Model);
-            MakeFeedback = new StringFeedback(() => Make);
+            _transmitQueue = new GenericQueue(key + "txqueue", 750, Thread.eThreadPriority.LowestPriority, 64);
 
             SerialNumber = config.DeviceSerialNumber;
             MacAddress = config.DeviceMacAddress;
 
+            DeviceInfo = new DeviceInfo()
+            {
+                SerialNumber = String.IsNullOrEmpty(SerialNumber) ? "Unknown - Set in Config" : SerialNumber,
+                MacAddress = String.IsNullOrEmpty(MacAddress) ? "Unknown - Set in Config" : MacAddress
+            };
+
+            OnlineFeedback = new BoolFeedback(() => _commsMonitor.IsOnline);
+            StatusFeedback = new IntFeedback(() => (int)_commsMonitor.Status);
+            ModelFeedback = new StringFeedback(() => Model);
+            MakeFeedback = new StringFeedback(() => Make);
+            PowerIsOnFeedback = new BoolFeedback(() => PowerIsOn);
+
+
             DeviceInfoPolls = new List<Action>
             {
                 GetFirmware,
-                GetModel,
-                GetHostname
+                GetModel
             };
 
             BuildPolls();
 
-            _pollRing = CreatePollTimer(Polls);
-            _deviceInfoPollRing = CreatePollTimer(DeviceInfoPolls);
-
+            /*
+            _pollRing = new CTimer(StatusPollRing, 0, Timeout.Infinite);
+            _deviceInfoPollRing = new CTimer(InfoPollRing, 0, Timeout.Infinite);
+            */
             _comms = comms;
             _commsMonitor = new GenericCommunicationMonitor(this, _comms, config.PollTimeMs, config.WarningTimeoutMs, config.ErrorTimeoutMs, () => _pollRing.Reset(750));
 
@@ -84,8 +95,6 @@ namespace AtlonaOme.Devices
             {
                 // device comms is IP **ELSE** device comms is RS232
                 socket.ConnectionChange += socket_ConnectionChange;
-                Connect = true;
-                ResolveHostData();
             }
 
             // Only one of the below handlers should be necessary.  
@@ -98,16 +107,29 @@ namespace AtlonaOme.Devices
             {
                 if (a == null) return;
                 if (a.Status != MonitorStatus.IsOk) return;
+                if (activated) ResolveHostData();
                 _deviceInfoPollRing.Reset(2500);
-            };
 
+            };
+            AddPostActivationAction(_comms.Connect);
+            AddPostActivationAction(_commsMonitor.Start);
+            AddPostActivationAction(SetActive);
+        }
+
+        private void SetActive()
+        {
+            activated = true;
+            if (!_commsMonitor.IsOnline) return;
+            ResolveHostData();
         }
 
         private static string SanitizeIpAddress(string ipAddressIn)
         {
+            var preSantitizedIp = ipAddressIn.TrimStart('0').TrimAll();
+            Debug.Console(2, "IP Address To Sanitize = {0}", preSantitizedIp);
             try
             {
-                var ipAddress = IPAddress.Parse(ipAddressIn.TrimStart('0'));
+                var ipAddress = IPAddress.Parse(ipAddressIn.TrimStart('0').TrimAll());
                 return ipAddress.ToString();
             }
             catch (Exception ex)
@@ -117,13 +139,14 @@ namespace AtlonaOme.Devices
             }
         }
 
-        private string GetMacFromArpTable(string ipaddress)
+        public string GetMacFromArpTable(string ipaddress)
         {
+            Debug.Console(0, this, "GetMacFromArpTable for : {0}", ipaddress);
             var consoleResponse = string.Empty;
-            var macAddress = string.Empty;
+            var macAddress = !String.IsNullOrEmpty(MacAddress) ? MacAddress : "Unknown";
             var ipAddress = SanitizeIpAddress(ipaddress);
-            if (!CrestronConsole.SendControlSystemCommand("showarptable", ref consoleResponse)) return MacAddress;
-            if (string.IsNullOrEmpty(consoleResponse)) return MacAddress;
+            if (!CrestronConsole.SendControlSystemCommand("showarptable", ref consoleResponse)) return macAddress;
+            if (string.IsNullOrEmpty(consoleResponse)) return macAddress;
 
             Debug.Console(2, "ConsoleResponse of 'showarptable' : {0}{1}", "\n", consoleResponse);
 
@@ -144,28 +167,24 @@ namespace AtlonaOme.Devices
             return macAddress;
         }
 
-        private void ResolveHostData()
+        public void ResolveHostData()
         {
             var searchString = _connectionStringFromConfig;
+            Debug.Console(0, this, "ResolveHostData SearchString = {0}", searchString);
             if (string.IsNullOrEmpty(searchString)) return;
             var hostEntry = Dns.GetHostEntry(searchString);
+            Debug.Console(0, this, "Getting HostEntry");
             if (hostEntry == null) return;
-            IpAddress = hostEntry.AddressList.First().ToString();
-            Hostname = hostEntry.HostName;
-            GetMacFromArpTable(IpAddress);
+            Debug.Console(0, this, "HostEntry Valid");
+            DeviceInfo.IpAddress = hostEntry.AddressList.First().ToString();
+            Debug.Console(0, this, "HostEntry Got IP");
+            DeviceInfo.HostName = hostEntry.HostName;
+            Debug.Console(0, this, "HostEntry Hostname");
+            DeviceInfo.MacAddress = GetMacFromArpTable(DeviceInfo.IpAddress);
         }
 
         private void socket_ConnectionChange(object sender, GenericSocketStatusChageEventArgs args)
         {
-            var telnetNegotation = new byte[] { 0xFF, 0xFE, 0x01, 0xFF, 0xFE, 0x21, 0xFF, 0xFC, 0x01, 0xFF, 0xFC, 0x03 };
-
-            if (args.Client.IsConnected)
-            {
-                args.Client.SendBytes(telnetNegotation);
-            }
-
-            if (ConnectFeedback != null)
-                ConnectFeedback.FireUpdate();
 
             if (StatusFeedback != null)
                 StatusFeedback.FireUpdate();
@@ -173,7 +192,22 @@ namespace AtlonaOme.Devices
 
         private void Handle_LineRecieved(object sender, GenericCommMethodReceiveTextArgs args)
         {
-            _receiveQueue.Enqueue(new ProcessStringMessage(args.Text, ProcessBaseFeedbackMessage));
+            const string telnetResponse = "\xFF\xFD\x01\xFF\xFD\x1F\xFF\xFB\x01\xFF\xFB\x03";
+            try
+            {
+                if (args.Text == telnetResponse) return;
+                Debug.Console(0,this, "Line Received = {0}", args.Text.Trim());
+                Debug.Console(0, this, "LastCommand = {0}", LastCommand.Trim());
+                if (args.Text.Contains("TELNET.", StringComparison.OrdinalIgnoreCase)) return;
+                if (args.Text.Contains("FAILED:", StringComparison.OrdinalIgnoreCase)) return;
+                if (args.Text.Trim().Equals(LastCommand.Trim())) return;
+                //ProcessBaseFeedbackMessage(args.Text);
+                _receiveQueue.Enqueue(new ProcessStringMessage(args.Text, ProcessBaseFeedbackMessage));
+            }
+            catch (Exception ex)
+            {
+                Debug.Console(0, this, "LineReceived Error : {0}", ex.Message);
+            }
         }
 
         /// <summary>
@@ -196,42 +230,50 @@ namespace AtlonaOme.Devices
 
         private void ProcessBaseFeedbackMessage(string message)
         {
-            if (LastCommand.Equals("Version", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                FirmwareVersion = message;
-                OnDeviceInfoChanged();
-                return;
+                Debug.Console(0, this, "Processing Response : {0}", message);
+                if (LastCommand.Equals("Version", StringComparison.OrdinalIgnoreCase))
+                {
+                    DeviceInfo.FirmwareVersion = message;
+                    OnDeviceInfoChanged();
+                    return;
+                }
+                if (LastCommand.Equals("Type", StringComparison.OrdinalIgnoreCase))
+                {
+                    Model = message;
+                    ModelFeedback.FireUpdate();
+                    MakeFeedback.FireUpdate();
+                    return;
+                }
+                if (message.IndexOf("IP Addr:", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    ParseIpInformation(message);
+                    return;
+                }
+                if (message.IndexOf("RHostName", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    ParseHostnameInformation(message);
+                    return;
+                }
+                if (message.IndexOf("PWON", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    PowerIsOn = true;
+                    PowerIsOnFeedback.FireUpdate();
+                    return;
+                }
+                if (message.IndexOf("PWOFF", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    PowerIsOn = false;
+                    PowerIsOnFeedback.FireUpdate();
+                    return;
+                }
+                ProcessFeedbackMessage(message);
             }
-            if (LastCommand.Equals("Type", StringComparison.OrdinalIgnoreCase))
+            catch (Exception ex)
             {
-                Model = message;
-                ModelFeedback.FireUpdate();
-                MakeFeedback.FireUpdate();
-                return;
+                Debug.Console(0, this, "ProcessBaseFeedbackMessage Error : {0}", ex.Message);
             }
-            if (message.IndexOf("IP Addr:", StringComparison.OrdinalIgnoreCase) > -1)
-            {
-                ParseIpInformation(message);
-                return;
-            }
-            if (message.IndexOf("RHostName", StringComparison.OrdinalIgnoreCase) > -1)
-            {
-                ParseHostnameInformation(message);
-                return;
-            }
-            if (message.IndexOf("PWON", StringComparison.OrdinalIgnoreCase) > -1)
-            {
-                PowerIsOn = true;
-                PowerIsOnFeedback.FireUpdate();
-                return;
-            }
-            if (message.IndexOf("PWOFF", StringComparison.OrdinalIgnoreCase) > -1)
-            {
-                PowerIsOn = false;
-                PowerIsOnFeedback.FireUpdate();
-                return;
-            }
-            ProcessFeedbackMessage(message);
         }
 
         private void ParseIpInformation(string message)
@@ -262,22 +304,63 @@ namespace AtlonaOme.Devices
         {
             if (string.IsNullOrEmpty(text)) return;
             LastCommand = text;
-            _comms.SendText(string.Format("{0}{1}", text, CommsTxDelimiter));
+            _transmitQueue.Enqueue(new ProcessStringMessage(text + CommsTxDelimiter, _comms.SendText));
+           // _comms.SendText(string.Format("{0}{1}", text, CommsTxDelimiter));
         }
 
-        public CTimer CreatePollTimer(List<Action> polls)
+        private void PollAllInfo()
         {
-            CTimer timer = null;
-            timer = new CTimer(_ =>
+            //_deviceInfoPollRing.Stop();
+            foreach (var item in DeviceInfoPolls)
             {
-                polls.ForEach(p => p.Invoke());
-                timer.Dispose();
-            }, 0, Timeout.Infinite);
-
-            return timer;
+                var pollAction = item;
+                pollAction.Invoke();
+            }
+            /*
+            var index = 0;
+            if (indexObj != null)
+            {
+                var indexNullable = indexObj as int?;
+                index = indexNullable == null ? 0 : (int) indexNullable;
+            }
+            if (index >= DeviceInfoPolls.Count)
+            {
+                _deviceInfoPollRing = new CTimer(InfoPollRing, 0, Timeout.Infinite);
+                return;
+            }
+            DeviceInfoPolls[index].Invoke();
+            var outIndex = index + 1;
+            _deviceInfoPollRing = new CTimer(InfoPollRing, outIndex, 750);
+             */
         }
-        
 
+        private void PollAllStatus()
+        {
+            foreach (var item in Polls)
+            {
+                var pollAction = item;
+                pollAction.Invoke();
+            }
+
+
+            /*
+            _pollRing.Stop();
+            var index = 0;
+            if (indexObj != null)
+            {
+                var indexNullable = indexObj as int?;
+                index = indexNullable == null ? 0 : (int)indexNullable;
+            }
+            if (index >= Polls.Count)
+            {
+                _pollRing = new CTimer(StatusPollRing, 0, Timeout.Infinite);
+                return;
+            }
+            Polls[index].Invoke();
+            var outIndex = index + 1;
+            _pollRing = new CTimer(StatusPollRing, outIndex, 750);
+             */
+        }
 
         public void PollPower()
         {
@@ -291,7 +374,7 @@ namespace AtlonaOme.Devices
 
         public void GetModel()
         {
-            SendText("Model");
+            SendText("Type");
         }
 
         public void GetFirmware()
@@ -314,6 +397,8 @@ namespace AtlonaOme.Devices
         /// Provides a queue and dedicated worker thread for processing feedback messages from a device.
         /// </summary>
         private readonly GenericQueue _receiveQueue;
+
+        private readonly GenericQueue _transmitQueue;
 
         private readonly IBasicCommunication _comms;
         private readonly GenericCommunicationMonitor _commsMonitor;
@@ -345,10 +430,6 @@ namespace AtlonaOme.Devices
             }
         }
 
-        /// <summary>
-        /// Reports connect feedback through the bridge
-        /// </summary>
-        public BoolFeedback ConnectFeedback { get; private set; }
 
         /// <summary>
         /// Reports online feedback through the bridge
@@ -468,6 +549,20 @@ namespace AtlonaOme.Devices
             };
         }
 
+        public void ReportDeviceInfo()
+        {
+            if (DeviceInfo == null)
+            {
+                Debug.Console(0, this, "DeviceInfo is null");
+                return;
+            }
+            Debug.Console(0, this, DeviceInfo.FirmwareVersion);
+            Debug.Console(0, this, DeviceInfo.IpAddress);
+            Debug.Console(0, this, DeviceInfo.HostName);
+            Debug.Console(0, this, DeviceInfo.MacAddress);
+            Debug.Console(0, this, DeviceInfo.SerialNumber);
+        }
+
         #region IDeviceInfoProvider Members
 
         public DeviceInfo DeviceInfo { get; protected set; }
@@ -476,14 +571,6 @@ namespace AtlonaOme.Devices
 
         private void OnDeviceInfoChanged()
         {
-            DeviceInfo = new DeviceInfo
-            {
-                IpAddress = IpAddress,
-                HostName = Hostname,
-                MacAddress = MacAddress,
-                FirmwareVersion = FirmwareVersion,
-                SerialNumber = SerialNumber
-            };
             var args = new DeviceInfoEventArgs(DeviceInfo);
             var changeEvent = DeviceInfoChanged;
             if (changeEvent == null) return;

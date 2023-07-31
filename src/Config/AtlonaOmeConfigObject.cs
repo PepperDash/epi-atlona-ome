@@ -23,8 +23,6 @@ namespace AtlonaOme.Config
 		public long WarningTimeoutMs { get; set; }
 		[JsonProperty("errorTimeoutMs")]
 		public long ErrorTimeoutMs { get; set; }
-        [JsonProperty("deviceMacAddress")]
-        public string DeviceMacAddress { get; set; }
         [JsonProperty("deviceSerialNumber")]
         public string DeviceSerialNumber { get; set; }
 	}
