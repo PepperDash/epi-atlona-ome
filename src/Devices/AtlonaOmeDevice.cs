@@ -57,10 +57,9 @@ namespace AtlonaOme.Devices
             EndpointType = endpointType;
             _connectionStringFromConfig = config.Control.TcpSshProperties.Address;
             _receiveQueue = new GenericQueue(key + "-rxqueue");  // If you need to set the thread priority, use one of the available overloaded constructors.
-            _transmitQueue = new GenericQueue(key + "txqueue", 750, Thread.eThreadPriority.LowestPriority, 64);
+            _transmitQueue = new GenericQueue(key + "-txqueue", 750, Thread.eThreadPriority.LowestPriority, 64);
 
             SerialNumber = config.DeviceSerialNumber;
-            MacAddress = config.DeviceMacAddress;
 
             DeviceInfo = new DeviceInfo()
             {
