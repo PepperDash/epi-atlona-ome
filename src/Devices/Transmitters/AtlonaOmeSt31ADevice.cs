@@ -22,13 +22,14 @@ namespace AtlonaOme.Devices.Transmitters
 	/// <example>
 	/// "EssentialsPluginDeviceTemplate" renamed to "SamsungMdcDevice"
 	/// </example>
-    public class AtlonaOmeSt31ADevice : AtlonaOmeDevice, ITxRoutingWithFeedback, IAtlonaRoutingPoll, IHdmiInput2, IHdmiInput3, IUsbCInput1
+    public class AtlonaOmeSt31ADevice : AtlonaOmeDevice, ITxRoutingWithFeedback, IAtlonaRoutingPoll, IHdmiInput2, IHdmiInput3, IUsbCInput1, IHasPowerControlWithFeedback
     {
         /// <summary>
         /// It is often desirable to store the config
         /// </summary>
         public ushort CurrentInput { get; private set; }
         private bool[] InputSync { get; set; }
+
         public BoolFeedback UsbCInput1SyncFeedback { get; private set; }
         public BoolFeedback HdmiInput2SyncFeedback { get; private set; }
         public BoolFeedback HdmiInput3SyncFeedback { get; private set; }
@@ -95,7 +96,7 @@ namespace AtlonaOme.Devices.Transmitters
         public AtlonaOmeSt31ADevice(string key, string name, AtlonaOmeConfigObject config, IBasicCommunication comms)
 			: base(key, name, config, comms, EndpointType.Tx)
 		{
-			Debug.Console(0, this, "Constructing new {0} instance", name);
+			Debug.Console(1, this, "Constructing new {0} instance", name);
 
             InputSync = new[]
             {
@@ -109,6 +110,8 @@ namespace AtlonaOme.Devices.Transmitters
             UsbCInput1SyncFeedback = new BoolFeedback(() => InputSync[0]);
 		    HdmiInput2SyncFeedback = new BoolFeedback(() => InputSync[1]);
 		    HdmiInput3SyncFeedback = new BoolFeedback(() => InputSync[2]);
+            PowerIsOnFeedback = new BoolFeedback(() => PowerIsOn);
+
 
 		    SyncFeedbacks = new FeedbackCollection<BoolFeedback>
 		    {
@@ -127,6 +130,7 @@ namespace AtlonaOme.Devices.Transmitters
             AddRoutingInputPort(new RoutingInputPort(RoutingPortNames.HdmiIn2, eRoutingSignalType.AudioVideo, eRoutingPortConnectionType.Hdmi, new Action(HdmiInput2), this ), "x2AVx1");
             AddRoutingInputPort(new RoutingInputPort(RoutingPortNames.HdmiIn3, eRoutingSignalType.AudioVideo, eRoutingPortConnectionType.Hdmi, new Action(HdmiInput3), this), "x3AVx1");
 
+            Polls.Add(PollPower);
 		}
 
         void AddRoutingInputPort(RoutingInputPort port, string fbMatch)
@@ -161,20 +165,27 @@ namespace AtlonaOme.Devices.Transmitters
                     LastCommand[4].ToString(CultureInfo.InvariantCulture)
                         .Equals("x", StringComparison.OrdinalIgnoreCase))
                 {
-                    Debug.Console(0, this, "ProcessRouteResponse 2");
-
                     ProcessRouteResponse(message);
                     return;
                 }
                 if (message.IndexOf("inputstatus", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    Debug.Console(0, this, "ProcessInputStatus");
                     ProcessInputStatus(message);
                 }
+                if (message.IndexOf("PWON", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    PowerIsOn = true;
+                    return;
+                }
+                if (message.IndexOf("PWOFF", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    PowerIsOn = false;
+                }
+
             }
             catch (Exception ex)
             {
-                Debug.Console(0, this, "ProcessFeedbackMessage [St31A] Error : {0}", ex.Message);
+                Debug.Console(0, this, "ProcessFeedbackMessage : \"{1}\" :: [St31A] Error : {0}", ex.Message, message);
             }
         }
 
@@ -188,8 +199,15 @@ namespace AtlonaOme.Devices.Transmitters
 	        SendText("InputStatus");
 	    }
 
+        public void PollPower()
+        {
+            SendText("PWSTA");
+        }
+
+
 	    private void ProcessInputStatus(string message)
 	    {
+	        if (message.IndexOf(" ", StringComparison.Ordinal) < 0) return;
 	        const string prefix = "InputStatus";
 	        var status = PullDataFromPrefix(prefix, message);
 	        for (var i = 0; i < status.Length; i++)
@@ -221,6 +239,37 @@ namespace AtlonaOme.Devices.Transmitters
                 throw;
             }
 	    }
+
+        #region IHasPowerControlWithFeedback Members
+
+        public BoolFeedback PowerIsOnFeedback { get; protected set; }
+
+        #endregion
+
+        #region IHasPowerControl Members
+
+        public void PowerOff()
+        {
+            SendText("PWOFF");
+        }
+
+        public void PowerOn()
+        {
+            SendText("PWON");
+        }
+
+        public void PowerToggle()
+        {
+            if (PowerIsOn)
+            {
+                PowerOff();
+                return;
+            }
+            PowerOn();
+        }
+
+        #endregion
+
     }
 }
 

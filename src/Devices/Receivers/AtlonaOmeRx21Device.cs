@@ -59,7 +59,6 @@ namespace AtlonaOme.Devices.Receivers
             }
             else
             {
-                PowerOn();
                 // ReSharper disable once ObjectCreationAsStatement
                 new CTimer(o => action.Invoke(), 5000);
             }
@@ -72,7 +71,7 @@ namespace AtlonaOme.Devices.Receivers
         public AtlonaOmeRx21Device(string key, string name, AtlonaOmeConfigObject config, IBasicCommunication comms)
             : base(key, name, config, comms, EndpointType.Rx)
         {
-			Debug.Console(0, this, "Constructing new {0} instance", name);
+			Debug.Console(1, this, "Constructing new {0} instance", name);
 
             InputSync = new[]
             {
@@ -112,29 +111,38 @@ namespace AtlonaOme.Devices.Receivers
         /// <param name="message"></param>
         protected override void ProcessFeedbackMessage(string message)
         {
-            if (LastCommand.Equals("status", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                var newMessage = message;
-                if (message.IndexOf(",", StringComparison.OrdinalIgnoreCase) > -1)
+                if (LastCommand.Equals("status", StringComparison.OrdinalIgnoreCase))
                 {
-                    newMessage = message.Substring(message.IndexOf(",", StringComparison.OrdinalIgnoreCase) + 1);
+                    var newMessage = message;
+                    if (message.IndexOf(",", StringComparison.OrdinalIgnoreCase) > -1)
+                    {
+                        newMessage = message.Substring(message.IndexOf(",", StringComparison.OrdinalIgnoreCase) + 1);
+                    }
+                    ProcessRouteResponse(newMessage);
+                    return;
                 }
-                ProcessRouteResponse(newMessage);
-                return;
+                if (
+                    LastCommand.First()
+                        .ToString(CultureInfo.InvariantCulture)
+                        .Equals("x", StringComparison.OrdinalIgnoreCase) &&
+                    LastCommand[4].ToString(CultureInfo.InvariantCulture)
+                        .Equals("x", StringComparison.OrdinalIgnoreCase))
+                {
+                    ProcessRouteResponse(message);
+                    return;
+                }
+                if (message.IndexOf("inputstatus", StringComparison.OrdinalIgnoreCase) > -1)
+                {
+                    ProcessInputStatus(message);
+                }
             }
-            if (
-                LastCommand.First()
-                    .ToString(CultureInfo.InvariantCulture)
-                    .Equals("x", StringComparison.OrdinalIgnoreCase) &&
-                LastCommand[4].ToString(CultureInfo.InvariantCulture).Equals("x", StringComparison.OrdinalIgnoreCase))
+            catch (Exception ex)
             {
-                ProcessRouteResponse(message);
-                return;
+                Debug.Console(0, this, "ProcessFeedbackMessage : \"{1}\" :: [Rx21] Error : {0}", ex.Message, message);
             }
-            if (message.IndexOf("inputstatus", StringComparison.OrdinalIgnoreCase) > -1)
-            {
-                ProcessInputStatus(message);
-            }
+
         }
 
         public void PollRouteStatus()
