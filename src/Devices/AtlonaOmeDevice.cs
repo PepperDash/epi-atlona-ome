@@ -191,6 +191,8 @@ namespace AtlonaOme.Devices
             }
             if (StatusFeedback != null)
                 StatusFeedback.FireUpdate();
+            if (OnlineFeedback != null)
+                OnlineFeedback.FireUpdate();
         }
 
         private void Handle_LineRecieved(object sender, GenericCommMethodReceiveTextArgs args)
