@@ -20,7 +20,7 @@ using PepperDash.Essentials.Devices.Common.VideoCodec.Cisco;
 
 namespace AtlonaOme.Devices
 {
-    public abstract class AtlonaOmeDevice : EssentialsBridgeableDevice, IDeviceInfoProvider
+    public abstract class AtlonaOmeDevice : EssentialsBridgeableDevice, IDeviceInfoProvider, ICommunicationMonitor
     {
         public string IpAddress { get; protected set; }
         public string MacAddress { get; protected set; }
@@ -51,7 +51,9 @@ namespace AtlonaOme.Devices
 
         public StringFeedback ModelFeedback { get; protected set; }
         public StringFeedback MakeFeedback { get; protected set; }
-        public FeedbackCollection<BoolFeedback> SyncFeedbacks { get; protected set; } 
+        public FeedbackCollection<BoolFeedback> SyncFeedbacks { get; protected set; }
+
+		private CommunicationGather _commsGather;
 
         protected AtlonaOmeDevice(string key, string name, AtlonaOmeConfigObject config, IBasicCommunication comms, EndpointType endpointType) : base(key, name)
         {
@@ -71,7 +73,6 @@ namespace AtlonaOme.Devices
             _comms = comms;
             _commsMonitor = new GenericCommunicationMonitor(this, _comms, config.PollTimeMs, config.WarningTimeoutMs, config.ErrorTimeoutMs, PollAllStatus);
 
-            OnlineFeedback = new BoolFeedback(() => _commsMonitor.IsOnline);
             StatusFeedback = new IntFeedback(() => (int)_commsMonitor.Status);
             ModelFeedback = new StringFeedback(() => Model);
             MakeFeedback = new StringFeedback(() => Make);
@@ -85,11 +86,6 @@ namespace AtlonaOme.Devices
 
             BuildPolls();
 
-            /*
-            _pollRing = new CTimer(StatusPollRing, 0, Timeout.Infinite);
-            _deviceInfoPollRing = new CTimer(InfoPollRing, 0, Timeout.Infinite);
-            */
-
             var socket = _comms as ISocketStatus;
             if (socket != null)
             {
@@ -100,8 +96,8 @@ namespace AtlonaOme.Devices
             // Only one of the below handlers should be necessary.  
 
             // _comms gather for any API that has a defined delimiter
-            var commsGather = new CommunicationGather(_comms, CommsRxDelimiter);
-            commsGather.LineReceived += Handle_LineRecieved;
+            _commsGather = new CommunicationGather(_comms, CommsRxDelimiter);
+            _commsGather.LineReceived += Handle_LineRecieved;
 
             _commsMonitor.StatusChange += (s, a) =>
             {
@@ -109,10 +105,7 @@ namespace AtlonaOme.Devices
                 if (a.Status != MonitorStatus.IsOk) return;
                 if (activated) ResolveHostData();
                 //_deviceInfoPollRing.Reset(2500);
-
             };
-            AddPostActivationAction(_comms.Connect);
-            AddPostActivationAction(SetActive);
         }
 
         private void SetActive()
@@ -121,6 +114,12 @@ namespace AtlonaOme.Devices
             if (!_commsMonitor.IsOnline) return;
             ResolveHostData();
         }
+
+		public override void Initialize()
+		{
+			_comms.Connect();
+			_commsMonitor.Start();
+		}
 
         private static string SanitizeIpAddress(string ipAddressIn)
         {
@@ -182,7 +181,7 @@ namespace AtlonaOme.Devices
         {
             if (args.Client.ClientStatus == SocketStatus.SOCKET_STATUS_CONNECTED)
             {
-                _commsMonitor.Start();
+				SetActive();
                 PollDeviceInfo();
             }
             if (args.Client.ClientStatus != SocketStatus.SOCKET_STATUS_CONNECTED)
@@ -191,8 +190,6 @@ namespace AtlonaOme.Devices
             }
             if (StatusFeedback != null)
                 StatusFeedback.FireUpdate();
-            if (OnlineFeedback != null)
-                OnlineFeedback.FireUpdate();
         }
 
         private void Handle_LineRecieved(object sender, GenericCommMethodReceiveTextArgs args)
@@ -431,7 +428,7 @@ namespace AtlonaOme.Devices
         /// <summary>
         /// Reports online feedback through the bridge
         /// </summary>
-        public BoolFeedback OnlineFeedback { get; private set; }
+        // public BoolFeedback OnlineFeedback { get; private set; }
 
         /// <summary>
         /// Reports socket status feedback through the bridge
@@ -584,7 +581,16 @@ namespace AtlonaOme.Devices
         #endregion
 
 
-    }
+
+		#region ICommunicationMonitor Members
+
+		public StatusMonitorBase CommunicationMonitor
+		{
+			get { return _commsMonitor; }
+		}
+
+		#endregion
+	}
 
     public enum EndpointType
     {
