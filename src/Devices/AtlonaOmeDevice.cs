@@ -435,113 +435,57 @@ namespace AtlonaOme.Devices
         /// </summary>
         public IntFeedback StatusFeedback { get; private set; }
 
-        public override void LinkToApi(BasicTriList trilist, uint joinStart,
-            string joinMapKey, EiscApiAdvanced bridge)
-        {
-            JoinMapBaseAdvanced joinMap;
-            var joinMapSerialized = JoinMapHelper.GetSerializedJoinMapForDevice(joinMapKey);
+		protected void LinkEndpointToApi(AtlonaOmeDevice endpoint, BasicTriList trilist, uint joinStart, string joinMapKey,
+			EiscApiAdvanced bridge)
+		{
+			Debug.Console(1, this, "Linking to Trilist '{0}'", trilist.ID.ToString("X"));
+			Debug.Console(2, this, "Linking to Atlona Endpoint: {0}", Name);
 
-            var isSerialized = !String.IsNullOrEmpty(joinMapSerialized);
+			var joinMap = new AtlonaBaseJoinMap(joinStart);
 
-            Debug.Console(1, this, "Linking to Trilist '{0}'", trilist.ID.ToString("X"));
-            Debug.Console(2, this, "Linking to Atlona Endpoint: {0}", Name);
+			var customJoins = JoinMapHelper.TryGetJoinMapAdvancedForDevice(joinMapKey);
 
+			if (customJoins != null)
+			{
+				joinMap.SetCustomJoinData(customJoins);
+			}
 
-            switch (EndpointType)
-            {
-                case(EndpointType.Tx):
-                    joinMap =
-                        isSerialized
-                            ? JsonConvert.DeserializeObject<AtlonaTxJoinMap>(joinMapKey)
-                            : new AtlonaTxJoinMap(joinStart);
-                    LinkTxToApi(trilist, joinMap, bridge);
-                    break;
-                case(EndpointType.Rx):
-                    joinMap = isSerialized
-                        ? JsonConvert.DeserializeObject<AtlonaRxJoinMap>(joinMapKey)
-                        : new AtlonaRxJoinMap(joinStart);
-                    LinkRxToApi(trilist, joinMap, bridge);
-                    break;
-                default:
-                    Debug.Console(0, this, "Endpoint type not set, unable to build bridge");
-                    return;
-            }
-        }
+			if (bridge != null)
+			{
+				bridge.AddJoinMap(Key, joinMap);
+			}
 
-        public void LinkRxToApi(BasicTriList trilist, JoinMapBaseAdvanced rxMap, EiscApiAdvanced bridge)
-        {
-            if(bridge != null)bridge.AddJoinMap(Key, rxMap);
-            var joinMap = rxMap as AtlonaRxJoinMap;
-            if (joinMap == null) return;
-            trilist.SetString(joinMap.DeviceName.JoinNumber, Name);
-            OnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline.JoinNumber]);
-            var rxRoutingWithFeedback = this as IRoutingFeedback;
-            if (rxRoutingWithFeedback != null)
-            {
-                trilist.SetUShortSigAction(joinMap.AudioVideoInput.JoinNumber,
-                    a => rxRoutingWithFeedback.ExecuteNumericSwitch(a, 1, eRoutingSignalType.AudioVideo));
-                rxRoutingWithFeedback.AudioVideoSourceNumericFeedback.LinkInputSig(
-                    trilist.UShortInput[joinMap.AudioVideoInput.JoinNumber]);
-            }
-            var hdmiInput2 = this as IHdmiInput2;
-            if (hdmiInput2 != null) hdmiInput2.HdmiInput2SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.InputSync.JoinNumber]);
+			LinkEndpointToApi(endpoint, trilist, joinMap);
 
-            trilist.SetUshort(joinMap.HdcpSupportCapability.JoinNumber, 0);
-            trilist.SetUshort(joinMap.HdcpInputPortCount.JoinNumber, 0);
+			trilist.OnlineStatusChange += (device, args) =>
+			{
+				if (!args.DeviceOnLine) return;
+			};
 
-            trilist.OnlineStatusChange += (s, a) =>
-            {
-                if (s == null) return;
-                if (!a.DeviceOnLine) return;
-                trilist.SetString(joinMap.DeviceName.JoinNumber, Name);
-                trilist.SetUshort(joinMap.HdcpSupportCapability.JoinNumber, 0);
-                trilist.SetUshort(joinMap.HdcpInputPortCount.JoinNumber, 0);
-                if (rxRoutingWithFeedback != null) rxRoutingWithFeedback.AudioVideoSourceNumericFeedback.FireUpdate();
-                if (hdmiInput2 != null) hdmiInput2.HdmiInput2SyncFeedback.FireUpdate();
-            };
+		}
 
-        }
-        public void LinkTxToApi(BasicTriList trilist, JoinMapBaseAdvanced txMap, EiscApiAdvanced bridge)
-        {
-            if (bridge != null) bridge.AddJoinMap(Key, txMap);
-            var joinMap = txMap as AtlonaTxJoinMap;
-            if (joinMap == null) return;
-            trilist.SetString(joinMap.DeviceName.JoinNumber, Name);
-            OnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline.JoinNumber]);
-            var txRoutingWithFeedback = this as ITxRoutingWithFeedback;
-            if (txRoutingWithFeedback != null)
-            {
-                trilist.SetUShortSigAction(joinMap.AudioVideoInput.JoinNumber,
-                    a => txRoutingWithFeedback.ExecuteNumericSwitch(a, 1, eRoutingSignalType.AudioVideo));
-                txRoutingWithFeedback.VideoSourceNumericFeedback.LinkInputSig(
-                    trilist.UShortInput[joinMap.AudioVideoInput.JoinNumber]);
-            }
-            var usbCInput1 = this as IUsbCInput1;
-            var hdmiInput1 = this as IHdmiInput1;
-            var hdmiInput2 = this as IHdmiInput2;
-            var hdmiInput3 = this as IHdmiInput3;
-            if (usbCInput1 != null) usbCInput1.UsbCInput1SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input1VideoSyncStatus.JoinNumber]);
-            if (hdmiInput1 != null) hdmiInput1.HdmiInput1SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input1VideoSyncStatus.JoinNumber]);
-            if (hdmiInput2 != null) hdmiInput2.HdmiInput2SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input2VideoSyncStatus.JoinNumber]);
-            if (hdmiInput3 != null) hdmiInput3.HdmiInput3SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input3VideoSyncStatus.JoinNumber]);
+		protected void LinkEndpointToApi(AtlonaOmeDevice endpoint, BasicTriList trilist, AtlonaBaseJoinMap joinMap)
+		{
+			trilist.SetString(joinMap.DeviceName.JoinNumber, Name);
 
-            trilist.SetUshort(joinMap.HdcpSupportCapability.JoinNumber, 0);
-            trilist.SetUshort(joinMap.HdcpInputPortCount.JoinNumber, 0);
+			_commsMonitor.IsOnlineFeedback.LinkInputSig(trilist.BooleanInput[joinMap.IsOnline.JoinNumber]);
 
-            trilist.OnlineStatusChange += (s, a) =>
-            {
-                if (s == null) return;
-                if (!a.DeviceOnLine) return;
-                trilist.SetString(joinMap.DeviceName.JoinNumber, Name);
-                trilist.SetUshort(joinMap.HdcpSupportCapability.JoinNumber, 0);
-                trilist.SetUshort(joinMap.HdcpInputPortCount.JoinNumber, 0);
-                if(txRoutingWithFeedback!= null) txRoutingWithFeedback.VideoSourceNumericFeedback.FireUpdate();
-                if (usbCInput1 != null) usbCInput1.UsbCInput1SyncFeedback.FireUpdate();
-                if (hdmiInput1 != null) hdmiInput1.HdmiInput1SyncFeedback.FireUpdate();
-                if (hdmiInput2 != null) hdmiInput2.HdmiInput2SyncFeedback.FireUpdate();
-                if (hdmiInput3 != null) hdmiInput3.HdmiInput3SyncFeedback.FireUpdate();
-            };
-        }
+			trilist.SetUshort(joinMap.HdcpSupportCapability.JoinNumber, 0);
+			trilist.SetUshort(joinMap.HdcpInputPortCount.JoinNumber, 0);
+
+			trilist.OnlineStatusChange += (s, a) =>
+			{
+				if (s == null)
+					return;
+
+				if (!a.DeviceOnLine)
+					return;
+
+				trilist.SetString(joinMap.DeviceName.JoinNumber, Name);
+				trilist.SetUshort(joinMap.HdcpSupportCapability.JoinNumber, 0);
+				trilist.SetUshort(joinMap.HdcpInputPortCount.JoinNumber, 0);
+			};
+		}
 
         public void ReportDeviceInfo()
         {

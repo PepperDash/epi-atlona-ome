@@ -12,24 +12,9 @@ namespace AtlonaOme.JoinMaps
 	/// <example>
 	/// "EssentialsPluginBridgeJoinMapTemplate" renamed to "SamsungMdcBridgeJoinMap"
 	/// </example>
-	public class AtlonaTxJoinMap : JoinMapBaseAdvanced
+	public class AtlonaTxJoinMap : AtlonaBaseJoinMap
 	{
 		#region Digital
-
-
-		[JoinName("IsOnline")]
-		public JoinDataComplete IsOnline = new JoinDataComplete(
-			new JoinData
-			{
-				JoinNumber = 1,
-				JoinSpan = 1
-			},
-			new JoinMetadata
-			{
-				Description = "Is Online",
-				JoinCapabilities = eJoinCapabilities.ToSIMPL,
-				JoinType = eJoinType.Digital
-			});
 
         [JoinName("VideoSyncStatus")]
         public JoinDataComplete VideoSyncStatus = new JoinDataComplete(
@@ -44,6 +29,7 @@ namespace AtlonaOme.JoinMaps
                 JoinCapabilities = eJoinCapabilities.ToSIMPL,
                 JoinType = eJoinType.Digital
             });
+
         [JoinName("Input1VideoSyncStatus")]
         public JoinDataComplete Input1VideoSyncStatus = new JoinDataComplete(
             new JoinData
@@ -88,51 +74,7 @@ namespace AtlonaOme.JoinMaps
 		#endregion
 
 
-		#region Analog
-
-		// TODO [ ] Add analog joins below plugin being developed
-
-        [JoinName("AudioVideoInput")]
-        public JoinDataComplete AudioVideoInput = new JoinDataComplete(
-            new JoinData
-            {
-                JoinNumber = 1,
-                JoinSpan = 1
-            },
-            new JoinMetadata
-            {
-                Description = "A/V Input Set / Get",
-                JoinCapabilities = eJoinCapabilities.ToFromSIMPL,
-                JoinType = eJoinType.Analog
-            });
-        [JoinName("HdcpSupportCapability")]
-        public JoinDataComplete HdcpSupportCapability = new JoinDataComplete(
-            new JoinData
-            {
-                JoinNumber = 3,
-                JoinSpan = 1
-            },
-            new JoinMetadata
-            {
-                Description = "HDCP Support Setting Capabilities",
-                JoinCapabilities = eJoinCapabilities.ToSIMPL,
-                JoinType = eJoinType.Analog
-            });
-        [JoinName("HdcpInputPortCount")]
-        public JoinDataComplete HdcpInputPortCount = new JoinDataComplete(
-            new JoinData
-            {
-                JoinNumber = 9,
-                JoinSpan = 1
-            },
-            new JoinMetadata
-            {
-                Description = "Number of Ports with HDCP Setting Support",
-                JoinCapabilities = eJoinCapabilities.ToSIMPL,
-                JoinType = eJoinType.Analog
-            });
-
-		#endregion
+		
 
 
 		#region Serial

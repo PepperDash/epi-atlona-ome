@@ -9,6 +9,7 @@ using PepperDash.Core;
 using AtlonaOme.Config;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Routing;
+using AtlonaOme.JoinMaps;
 
 
 namespace AtlonaOme.Devices.Receivers
@@ -104,6 +105,47 @@ namespace AtlonaOme.Devices.Receivers
             port.FeedbackMatchObject = fbMatch;
             InputPorts.Add(port);
         }
+
+		public override void LinkToApi(Crestron.SimplSharpPro.DeviceSupport.BasicTriList trilist, uint joinStart, string joinMapKey, PepperDash.Essentials.Core.Bridges.EiscApiAdvanced bridge)
+		{
+			Debug.Console(1, this, "Linking to Trilist '{0}'", trilist.ID.ToString("X"));
+			Debug.Console(2, this, "Linking to Atlona Endpoint: {0}", Name);
+
+			var joinMap = new AtlonaRxJoinMap(joinStart);
+
+			var customJoins = JoinMapHelper.TryGetJoinMapAdvancedForDevice(joinMapKey);
+
+			if (customJoins != null)
+			{
+				joinMap.SetCustomJoinData(customJoins);
+			}
+
+			if (bridge == null)
+			{
+				return;
+			}
+
+			bridge.AddJoinMap(Key, joinMap);
+
+			trilist.SetUShortSigAction(joinMap.AudioVideoInput.JoinNumber,
+					a => ExecuteNumericSwitch(a, 1, eRoutingSignalType.AudioVideo));
+			AudioVideoSourceNumericFeedback.LinkInputSig(
+				trilist.UShortInput[joinMap.AudioVideoInput.JoinNumber]);
+
+			HdmiInput2SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.InputSync.JoinNumber]);
+
+			trilist.OnlineStatusChange += (s, a) =>
+			{
+				if (s == null)
+					return;
+				if (!a.DeviceOnLine)
+					return;
+				AudioVideoSourceNumericFeedback.FireUpdate();
+				HdmiInput2SyncFeedback.FireUpdate();
+			};
+
+			LinkEndpointToApi(this, trilist, joinMap);
+		}
 
         /// <summary>
         /// This method should perform any necessary parsing of feedback messages from the device
