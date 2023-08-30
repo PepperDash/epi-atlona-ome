@@ -9,6 +9,7 @@ using PepperDash.Core;
 using AtlonaOme.Config;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Routing;
+using AtlonaOme.JoinMaps;
 
 
 namespace AtlonaOme.Devices.Receivers
@@ -105,6 +106,47 @@ namespace AtlonaOme.Devices.Receivers
             InputPorts.Add(port);
         }
 
+		public override void LinkToApi(Crestron.SimplSharpPro.DeviceSupport.BasicTriList trilist, uint joinStart, string joinMapKey, PepperDash.Essentials.Core.Bridges.EiscApiAdvanced bridge)
+		{
+			Debug.Console(1, this, "Linking to Trilist '{0}'", trilist.ID.ToString("X"));
+			Debug.Console(2, this, "Linking to Atlona Endpoint: {0}", Name);
+
+			var joinMap = new AtlonaRxJoinMap(joinStart);
+
+			var customJoins = JoinMapHelper.TryGetJoinMapAdvancedForDevice(joinMapKey);
+
+			if (customJoins != null)
+			{
+				joinMap.SetCustomJoinData(customJoins);
+			}
+
+			if (bridge == null)
+			{
+				return;
+			}
+
+			bridge.AddJoinMap(Key, joinMap);
+
+			trilist.SetUShortSigAction(joinMap.AudioVideoInput.JoinNumber,
+					a => ExecuteNumericSwitch(a, 1, eRoutingSignalType.AudioVideo));
+			AudioVideoSourceNumericFeedback.LinkInputSig(
+				trilist.UShortInput[joinMap.AudioVideoInput.JoinNumber]);
+
+			HdmiInput2SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.InputSync.JoinNumber]);
+
+			trilist.OnlineStatusChange += (s, a) =>
+			{
+				if (s == null)
+					return;
+				if (!a.DeviceOnLine)
+					return;
+				AudioVideoSourceNumericFeedback.FireUpdate();
+				HdmiInput2SyncFeedback.FireUpdate();
+			};
+
+			LinkEndpointToApi(this, trilist, joinMap);
+		}
+
         /// <summary>
         /// This method should perform any necessary parsing of feedback messages from the device
         /// </summary>
@@ -113,6 +155,11 @@ namespace AtlonaOme.Devices.Receivers
         {
             try
             {
+				Debug.Console(1, this, "Rx processing message: {0} last command: {1}", message, LastCommand);
+				if (message.ToLower().Contains("inputstatus"))
+				{
+					ProcessInputStatus(message);
+				}
                 if (LastCommand.Equals("status", StringComparison.OrdinalIgnoreCase))
                 {
                     var newMessage = message;
@@ -132,11 +179,7 @@ namespace AtlonaOme.Devices.Receivers
                 {
                     ProcessRouteResponse(message);
                     return;
-                }
-                if (message.IndexOf("inputstatus", StringComparison.OrdinalIgnoreCase) > -1)
-                {
-                    ProcessInputStatus(message);
-                }
+                }                
             }
             catch (Exception ex)
             {
@@ -157,10 +200,13 @@ namespace AtlonaOme.Devices.Receivers
 
         private void ProcessInputStatus(string message)
         {
+			Debug.Console(1, this, "Processing InputStatus message: {0}", message);
             const string prefix = "InputStatus";
             var status = PullDataFromPrefix(prefix, message);
+			Debug.Console(1, this, "InputStatus: {0}", status);
             for (var i = 0; i < status.Length; i++)
             {
+				Debug.Console(1, this, "index {0} sync state {1} status string {2}", i, status[i], status);
                 InputSync[i] = status[i] == '1';
             }
             foreach (var feedback in SyncFeedbacks)
@@ -172,6 +218,7 @@ namespace AtlonaOme.Devices.Receivers
 
         private void ProcessRouteResponse(string message)
         {
+			Debug.Console(1, this, "Processing Route status message: {0}", message);
             var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(message));
             if (newInput == null) return;
             var inputIndex = InputPorts.IndexOf(newInput);

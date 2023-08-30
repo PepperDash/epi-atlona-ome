@@ -7,8 +7,8 @@
     <ProjectGuid>{9D249E47-8F95-4437-A6BB-563510287AD1}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>AtlonaOme</RootNamespace>
-    <AssemblyName>AtlonaOme</AssemblyName>
+    <RootNamespace>PepperDash.Essentials.Plugin.Atlona.Ome</RootNamespace>
+    <AssemblyName>PepperDash.Essentials.Plugin.Atlona.Ome</AssemblyName>
     <ProjectTypeGuids>{0B4745B0-194B-4BB6-8E21-E9057CA92300};{4D628B5B-2FBC-4AA6-8C16-197242AEB884};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <PlatformFamilyName>WindowsCE</PlatformFamilyName>
     <PlatformID>E2BECB1F-8C8C-41ba-B736-9BE7D946A398</PlatformID>
@@ -48,7 +48,7 @@
   <ItemGroup>
     <Reference Include="Crestron.SimplSharpPro.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=1099c178b3b54c3b, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\ProgramData\Crestron\SDK\SSPDevices\Crestron.SimplSharpPro.UI.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\..\ProgramData\Crestron\SDK\SSPDevices\Crestron.SimplSharpPro.UI.dll</HintPath>
     </Reference>
     <Reference Include="Essentials Devices Common, Version=1.6.2.33892, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -101,6 +101,7 @@
   <ItemGroup>
     <Compile Include="Devices\AtlonaOmeDevice.cs" />
     <Compile Include="Interfaces.cs" />
+    <Compile Include="JoinMaps\AtlonaBaseJoinMap.cs" />
     <Compile Include="JoinMaps\AtlonaTxJoinMap.cs" />
     <Compile Include="Config\AtlonaOmeConfigObject.cs" />
     <Compile Include="Factories\AtlonaOmeFactory.cs" />

@@ -9,6 +9,7 @@ using PepperDash.Core;
 using AtlonaOme.Config;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Routing;
+using AtlonaOme.JoinMaps;
 
 
 namespace AtlonaOme.Devices.Transmitters
@@ -138,6 +139,49 @@ namespace AtlonaOme.Devices.Transmitters
             port.FeedbackMatchObject = fbMatch;
             InputPorts.Add(port);
         }
+
+		public override void LinkToApi(Crestron.SimplSharpPro.DeviceSupport.BasicTriList trilist, uint joinStart, string joinMapKey, PepperDash.Essentials.Core.Bridges.EiscApiAdvanced bridge)
+		{
+			Debug.Console(1, this, "Linking to Trilist '{0}'", trilist.ID.ToString("X"));
+			Debug.Console(2, this, "Linking to Atlona Endpoint: {0}", Name);
+
+			var joinMap = new AtlonaTxJoinMap(joinStart);
+
+			var customJoins = JoinMapHelper.TryGetJoinMapAdvancedForDevice(joinMapKey);
+
+			if (customJoins != null)
+			{
+				joinMap.SetCustomJoinData(customJoins);
+			}
+
+			if (bridge == null)
+			{
+				return;
+			}
+
+			bridge.AddJoinMap(Key, joinMap);
+
+			trilist.SetUShortSigAction(joinMap.AudioVideoInput.JoinNumber,
+				a => ExecuteNumericSwitch(a, 1, eRoutingSignalType.AudioVideo));
+			VideoSourceNumericFeedback.LinkInputSig(
+				trilist.UShortInput[joinMap.AudioVideoInput.JoinNumber]);
+			
+			UsbCInput1SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input1VideoSyncStatus.JoinNumber]);
+			HdmiInput2SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input2VideoSyncStatus.JoinNumber]);
+			HdmiInput3SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input3VideoSyncStatus.JoinNumber]);
+
+			trilist.OnlineStatusChange += (s, a) =>
+			{
+				if (s == null) return;
+				if (!a.DeviceOnLine) return;
+				VideoSourceNumericFeedback.FireUpdate();
+				UsbCInput1SyncFeedback.FireUpdate();
+				HdmiInput2SyncFeedback.FireUpdate();
+				HdmiInput3SyncFeedback.FireUpdate();
+			};
+
+			LinkEndpointToApi(this, trilist, joinMap);
+		}
 
         /// <summary>
         /// This method should perform any necessary parsing of feedback messages from the device
