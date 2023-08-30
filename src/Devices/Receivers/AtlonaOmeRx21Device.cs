@@ -155,6 +155,11 @@ namespace AtlonaOme.Devices.Receivers
         {
             try
             {
+				Debug.Console(1, this, "Rx processing message: {0} last command: {1}", message, LastCommand);
+				if (message.ToLower().Contains("inputstatus"))
+				{
+					ProcessInputStatus(message);
+				}
                 if (LastCommand.Equals("status", StringComparison.OrdinalIgnoreCase))
                 {
                     var newMessage = message;
@@ -174,11 +179,7 @@ namespace AtlonaOme.Devices.Receivers
                 {
                     ProcessRouteResponse(message);
                     return;
-                }
-                if (message.IndexOf("inputstatus", StringComparison.OrdinalIgnoreCase) > -1)
-                {
-                    ProcessInputStatus(message);
-                }
+                }                
             }
             catch (Exception ex)
             {
@@ -199,10 +200,13 @@ namespace AtlonaOme.Devices.Receivers
 
         private void ProcessInputStatus(string message)
         {
+			Debug.Console(1, this, "Processing InputStatus message: {0}", message);
             const string prefix = "InputStatus";
             var status = PullDataFromPrefix(prefix, message);
+			Debug.Console(1, this, "InputStatus: {0}", status);
             for (var i = 0; i < status.Length; i++)
             {
+				Debug.Console(1, this, "index {0} sync state {1} status string {2}", i, status[i], status);
                 InputSync[i] = status[i] == '1';
             }
             foreach (var feedback in SyncFeedbacks)
@@ -214,6 +218,7 @@ namespace AtlonaOme.Devices.Receivers
 
         private void ProcessRouteResponse(string message)
         {
+			Debug.Console(1, this, "Processing Route status message: {0}", message);
             var newInput = InputPorts.FirstOrDefault(i => i.FeedbackMatchObject.Equals(message));
             if (newInput == null) return;
             var inputIndex = InputPorts.IndexOf(newInput);
