@@ -1,4 +1,4 @@
-# Essentials Plugin Template (c) 2020
+# Essentials Atlona OME Plugin
 
 ## License
 
@@ -6,20 +6,7 @@ Provided under MIT license
 
 ## Overview
 
-Fork this repo when creating a new plugin for Essentials. For more information about plugins, refer to the Essentials Wiki [Plugins](https://github.com/PepperDash/Essentials/wiki/Plugins) article.
-
-This repo contains example classes for the three main categories of devices:
-* `EssentialsPluginTemplateDevice`: Used for most third party devices which require communication over a streaming mechanism such as a Com port, TCP/SSh/UDP socket, CEC, etc
-* `EssentialsPluginTemplateLogicDevice`:  Used for devices that contain logic, but don't require any communication with third parties outside the program
-* `EssentialsPluginTemplateCrestronDevice`:  Used for devices that represent a piece of Crestron hardware
-
-There are matching factory classes for each of the three categories of devices.  The `EssentialsPluginTemplateConfigObject` should be used as a template and modified for any of the categories of device.  Same goes for the `EssentialsPluginTemplateBridgeJoinMap`.
-
-This also illustrates how a plugin can contain multiple devices.
-
-## Cloning Instructions
-
-After forking this repository into your own GitHub space, you can create a new repository using this one as the template.  Then you must install the necessary dependencies as indicated below.
+This plugin controls Atlona OME HDBase-T transmitter and receiver pairs, including sync detection and switching.
 
 ## Dependencies
 
@@ -27,32 +14,143 @@ The [Essentials](https://github.com/PepperDash/Essentials) libraries are require
 
 ### Installing Dependencies
 
-To install dependencies once nuget.exe is installed, run the following command from the root directory of your repository:
-`nuget install .\packages.config -OutputDirectory .\packages -excludeVersion`.
-Alternatively, you can simply run the `GetPackages.bat` file.
-To verify that the packages installed correctly, open the plugin solution in your repo and make sure that all references are found, then try and build it.
+Dependencies will be installed automatically by Visual Studio on opening. Use the Nuget Package Manager in
+Visual Studio to manage nuget package dependencies. All files will be output to the `output` directory at the root of
+repository.
 
 ### Installing Different versions of PepperDash Core
 
-If you need a different version of PepperDash Core, use the command `nuget install .\packages.config -OutputDirectory .\packages -excludeVersion -Version {versionToGet}`. Omitting the `-Version` option will pull the version indicated in the packages.config file.
+If a different version of PepperDash Core is needed, use the Visual Studio Nuget Package Manager to install the desired
+version.
 
-### Instructions for Renaming Solution and Files
+# Usage
 
-See the Task List in Visual Studio for a guide on how to start using the template.  There is extensive inline documentation and examples as well.
+## Join Maps
 
-For renaming instructions in particular, see the XML `remarks` tags on class definitions
+### Receiver Join Map
 
-## Build Instructions (PepperDash Internal) 
+#### Digitals
 
-## Generating Nuget Package 
+| Join Number | Join Span | Description                    | Type                | Capabilities |
+| ----------- | --------- | ------------------------------ | ------------------- | ------------ |
+| 1        | 1         | Device Online                  | Digital             | ToSIMPL      |
+| 2        | 1         | Any Input Has Sync                  | Digital             | ToSIMPL      |
 
-In the solution folder is a file named "PDT.EssentialsPluginTemplate.nuspec" 
+#### Analogs
 
-1. Rename the file to match your plugin solution name 
-2. Edit the file to include your project specifics including
-    1. <id>PepperDash.Essentials.Plugin.MakeModel</id> Convention is to use the prefix "PepperDash.Essentials.Plugin" and include the MakeModel of the device. 
-    2. <projectUrl>https://github.com/PepperDash/EssentialsPluginTemplate</projectUrl> Change to your url to the project repo
+| Join Number | Join Span | Description               | Type                | Capabilities |
+| ----------- | --------- | ------------------------- | ------------------- | ------------ |
+| 1        | 1         | A/V Input Set/Get                | Analog              | ToFromSIMPL      |
+| 3        | 1         | HDCP Support Capability  | Analog              | ToSIMPL      |
+| 9        | 1         | HDCP Input Count        | Analog              | ToSIMPL      |
 
-There is no longer a requirement to adjust workflow files for nuget generation for private and public repositories.  This is now handled automatically in the workflow.
+#### Serials
 
-__If you do not make these changes to the nuspec file, the project will not generate a nuget package__
+| Join Number | Join Span | Description           | Type                | Capabilities |
+| ----------- | --------- | --------------------- | ------------------- | ------------ |
+| 6       | 1         | Device Name | Serial              | ToSIMPL      |
+| 2        | 1         | Mic Name              | Serial              | ToSIMPL      |
+| 50        | 1         | Device Name Name      | Serial              | ToSIMPL      |
+
+### Transmitter Join Map
+
+#### Digitals
+
+| Join Number | Join Span | Description                    | Type                | Capabilities |
+| ----------- | --------- | ------------------------------ | ------------------- | ------------ |
+| 1        | 1         | Device Online                  | Digital             | ToSIMPL      |
+| 2        | 1         | Any Input Has Sync                  | Digital             | ToSIMPL      |
+| 4        | 1         | Input 1 Has Sync                  | Digital             | ToSIMPL      |
+| 5        | 1         | Input 2 Has Sync                  | Digital             | ToSIMPL      |
+| 6        | 1         | Input 3 Has Sync                  | Digital             | ToSIMPL      |
+
+#### Analogs
+
+| Join Number | Join Span | Description               | Type                | Capabilities |
+| ----------- | --------- | ------------------------- | ------------------- | ------------ |
+| 1        | 1         | A/V Input Set/Get                | Analog              | ToFromSIMPL      |
+| 3        | 1         | HDCP Support Capability  | Analog              | ToSIMPL      |
+| 9        | 1         | HDCP Input Count        | Analog              | ToSIMPL      |
+
+#### Serials
+
+| Join Number | Join Span | Description           | Type                | Capabilities |
+| ----------- | --------- | --------------------- | ------------------- | ------------ |
+| 1       | 1         | Device Name | Serial              | ToSIMPL      |
+| 6       | 1         | Device Name | Serial              | ToSIMPL      |
+| 2        | 1         | Mic Name              | Serial              | ToSIMPL      |
+| 50        | 1         | Device Name Name      | Serial              | ToSIMPL      |
+
+## Example Config
+
+### Receiver
+
+#### Device Types
+
+Valid device types are
+* `AtOmeRx21`
+* `AT-OME-RX21`
+* `RX21`
+* `OMERX21`
+
+#### Control Methods
+
+
+```json
+{
+  "key": "VRX-1",
+  "name": "Laptop",
+  "group": "api",
+  "type": "AtOmeRx21",
+  "properties": {
+    "control": {
+        "method": "tcpIp",
+        "tcpSshProperties": {
+            "address": "192.168.0.231",
+            "port": "23",
+            "autoReconnect": true,
+            "autoReconnectIntervalMs": 5000
+        }
+    },
+    "pollTimeMs" : 3000,
+    "warningTimeoutMs" : 60000,
+    "errorTimeoutMs" : 180000
+  }
+}
+```
+
+### Transmitter
+
+#### Device Types
+
+Valid device types are
+* `AtOmeSt31A`,
+* `AT-OME-ST31A`
+* `ST31A`
+* `OMEST31A`
+
+#### Control Methods
+
+
+```json
+{
+  "key": "VTX-1",
+  "name": "Laptop",
+  "group": "api",
+  "type": "AtOmeSt31A",
+  "properties": {
+    "control": {
+        "method": "tcpIp",
+        "tcpSshProperties": {
+            "address": "192.168.0.231",
+            "port": "23",
+            "autoReconnect": true,
+            "autoReconnectIntervalMs": 5000
+        }
+    },
+    "pollTimeMs" : 3000,
+    "warningTimeoutMs" : 60000,
+    "errorTimeoutMs" : 180000
+  }
+}
+```
