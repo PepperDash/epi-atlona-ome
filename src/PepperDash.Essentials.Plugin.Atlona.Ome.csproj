@@ -100,6 +100,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Devices\AtlonaOmeDevice.cs" />
+    <Compile Include="Devices\Receivers\AtlonaOmeRx31Device.cs" />
+    <Compile Include="Devices\Transmitters\AtlonaOmeSw21TxDevice.cs" />
     <Compile Include="Interfaces.cs" />
     <Compile Include="JoinMaps\AtlonaBaseJoinMap.cs" />
     <Compile Include="JoinMaps\AtlonaTxJoinMap.cs" />
