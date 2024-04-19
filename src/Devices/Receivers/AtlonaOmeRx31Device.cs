@@ -78,6 +78,7 @@ namespace AtlonaOme.Devices.Receivers
             InputSync = new[]
             {
                 false,
+                false,
                 false
             };
 
