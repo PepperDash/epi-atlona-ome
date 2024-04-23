@@ -38,7 +38,9 @@ namespace AtlonaOme.Factories
         /// </code>
 		/// </example>
         private readonly List<string> _omeRx21TypeNames = new List<string> { "AtOmeRx21", "AT-OME-RX21", "RX21", "OMERX21" };
+        private readonly List<string> _omeRx31TypeNames = new List<string> { "AtOmeRx31", "AT-OME-RX31", "RX31", "OMERX31" };
         private readonly List<string> _omeSt31ATypeNames = new List<string> { "AtOmeSt31A", "AT-OME-ST31A", "ST31A", "OMEST31A" };
+        private readonly List<string> _omeSw21TxTypeNames = new List<string> { "AtOmeSw21Tx", "AT-OME-SW21-TX", "SW21TX", "OMESW21TX" };
 
         public AtlonaOmeFactory()
         {
@@ -46,7 +48,7 @@ namespace AtlonaOme.Factories
 
 
             //If you add more devices, create a new list of strings for each device type, and then concat them like I did here - makes it easier to search for them.
-            TypeNames = new List<string>().Concat(_omeRx21TypeNames).Concat(_omeSt31ATypeNames).ToList();
+            TypeNames = new List<string>().Concat(_omeRx21TypeNames).Concat(_omeSt31ATypeNames).Concat(_omeRx31TypeNames).Concat(_omeSw21TxTypeNames).ToList();
 
         }
         
@@ -82,6 +84,10 @@ namespace AtlonaOme.Factories
                 return new AtlonaOmeRx21Device(dc.Key, dc.Name, propertiesConfig, comms);
             if (_omeSt31ATypeNames.Contains(dc.Type, StringComparer.OrdinalIgnoreCase))
                 return new AtlonaOmeSt31ADevice(dc.Key, dc.Name, propertiesConfig, comms);
+            if (_omeRx31TypeNames.Contains(dc.Type, StringComparer.OrdinalIgnoreCase))
+                return new AtlonaOmeRx31Device(dc.Key, dc.Name, propertiesConfig, comms);
+            if (_omeSw21TxTypeNames.Contains(dc.Type, StringComparer.OrdinalIgnoreCase))
+                return new AtlonaOmeSw21TxDevice(dc.Key, dc.Name, propertiesConfig, comms);
 
 		    return null;
 
