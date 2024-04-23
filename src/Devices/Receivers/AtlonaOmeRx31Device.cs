@@ -137,7 +137,9 @@ namespace AtlonaOme.Devices.Receivers
 			AudioVideoSourceNumericFeedback.LinkInputSig(
 				trilist.UShortInput[joinMap.AudioVideoInput.JoinNumber]);
 
-			HdmiInput3SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.InputSync.JoinNumber]);
+            HdBaseTInput1SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input1VideoSyncStatus.JoinNumber]);
+            HdBaseTInput2SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input2VideoSyncStatus.JoinNumber]);
+            HdmiInput3SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input3VideoSyncStatus.JoinNumber]);
 
 			trilist.OnlineStatusChange += (s, a) =>
 			{
@@ -145,7 +147,9 @@ namespace AtlonaOme.Devices.Receivers
 					return;
 				if (!a.DeviceOnLine)
 					return;
-				AudioVideoSourceNumericFeedback.FireUpdate();
+                AudioVideoSourceNumericFeedback.FireUpdate();
+                HdBaseTInput1SyncFeedback.FireUpdate();
+                HdBaseTInput2SyncFeedback.FireUpdate();
 				HdmiInput3SyncFeedback.FireUpdate();
 			};
 

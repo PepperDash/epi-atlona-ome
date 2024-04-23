@@ -73,11 +73,11 @@ namespace AtlonaOme.Devices.Transmitters
 
 	    public void UsbCInput1()
 	    {
-	        SendText("x1AVx1");
+	        SendText("x2AVx1");
 	    }
 	    public void HdmiInput2()
 	    {
-	        SendText("x2AVx1");
+	        SendText("x1AVx1");
 	    }
 
 
@@ -97,14 +97,13 @@ namespace AtlonaOme.Devices.Transmitters
             InputSync = new[]
             {
                 false,
-                false,
                 false
             };
 
             VideoSourceNumericFeedback = new IntFeedback(() => CurrentInput);
             AudioSourceNumericFeedback = new IntFeedback(() => CurrentInput);
-            UsbCInput1SyncFeedback = new BoolFeedback(() => InputSync[0]);
-		    HdmiInput2SyncFeedback = new BoolFeedback(() => InputSync[1]);
+            UsbCInput1SyncFeedback = new BoolFeedback(() => InputSync[1]);
+		    HdmiInput2SyncFeedback = new BoolFeedback(() => InputSync[0]);
             PowerIsOnFeedback = new BoolFeedback(() => PowerIsOn);
 
 
@@ -120,8 +119,8 @@ namespace AtlonaOme.Devices.Transmitters
                 new RoutingOutputPort("HdBaseTOut", eRoutingSignalType.AudioVideo, eRoutingPortConnectionType.DmCat, "1", this)
 		    };
             //Change DisplayPort to UsbC when Essentials updates
-            AddRoutingInputPort(new RoutingInputPort("usbCIn1", eRoutingSignalType.AudioVideo, eRoutingPortConnectionType.DisplayPort, new Action(UsbCInput1), this ), "x1AVx1");
-            AddRoutingInputPort(new RoutingInputPort(RoutingPortNames.HdmiIn2, eRoutingSignalType.AudioVideo, eRoutingPortConnectionType.Hdmi, new Action(HdmiInput2), this ), "x2AVx1");
+            AddRoutingInputPort(new RoutingInputPort(RoutingPortNames.HdmiIn2, eRoutingSignalType.AudioVideo, eRoutingPortConnectionType.Hdmi, new Action(HdmiInput2), this), "x1AVx1");
+            AddRoutingInputPort(new RoutingInputPort("usbCIn1", eRoutingSignalType.AudioVideo, eRoutingPortConnectionType.DisplayPort, new Action(UsbCInput1), this ), "x2AVx1");
 
             Polls.Add(PollPower);
 		}
@@ -157,8 +156,9 @@ namespace AtlonaOme.Devices.Transmitters
 				a => ExecuteNumericSwitch(a, 1, eRoutingSignalType.AudioVideo));
 			VideoSourceNumericFeedback.LinkInputSig(
 				trilist.UShortInput[joinMap.AudioVideoInput.JoinNumber]);
-			
-			UsbCInput1SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input1VideoSyncStatus.JoinNumber]);
+
+            UsbCInput1SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input2VideoSyncStatus.JoinNumber]);
+            HdmiInput2SyncFeedback.LinkInputSig(trilist.BooleanInput[joinMap.Input1VideoSyncStatus.JoinNumber]);
 
 			trilist.OnlineStatusChange += (s, a) =>
 			{
