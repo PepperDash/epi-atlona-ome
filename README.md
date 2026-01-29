@@ -154,3 +154,151 @@ Valid device types are
   }
 }
 ```
+<!-- START Minimum Essentials Framework Versions -->
+### Minimum Essentials Framework Versions
+
+- 1.13.4
+<!-- END Minimum Essentials Framework Versions -->
+<!-- START Config Example -->
+### Config Example
+
+```json
+{
+    "key": "GeneratedKey",
+    "uid": 1,
+    "name": "GeneratedName",
+    "type": "AtlonaOmeConfig",
+    "group": "Group",
+    "properties": {
+        "control": "SampleValue",
+        "pollTimeMs": 0,
+        "warningTimeoutMs": 0,
+        "errorTimeoutMs": 0,
+        "deviceSerialNumber": "SampleString"
+    }
+}
+```
+<!-- END Config Example -->
+<!-- START Supported Types -->
+
+<!-- END Supported Types -->
+<!-- START Join Maps -->
+### Join Maps
+
+#### Digitals
+
+| Join | Type (RW) | Description |
+| --- | --- | --- |
+| 1 | R | Is Online |
+
+#### Analogs
+
+| Join | Type (RW) | Description |
+| --- | --- | --- |
+| 1 | R | A/V Input Set / Get |
+| 3 | R | HDCP Support Setting Capabilities |
+| 9 | R | Number of Ports with HDCP Setting Support |
+<!-- END Join Maps -->
+<!-- START Interfaces Implemented -->
+### Interfaces Implemented
+
+- IDeviceInfoProvider
+- ICommunicationMonitor
+- IHdBaseTInput1
+- IHdBaseTInput2
+- IHdmiInput3
+- IRoutingFeedback
+- IAtlonaRoutingPoll
+- IHdmiInput2
+- ITxRoutingWithFeedback
+- IUsbCInput1
+- IHasPowerControlWithFeedback
+<!-- END Interfaces Implemented -->
+<!-- START Base Classes -->
+### Base Classes
+
+- EssentialsBridgeableDevice
+- AtlonaOmeDevice
+- AtlonaBaseJoinMap
+- JoinMapBaseAdvanced
+<!-- END Base Classes -->
+<!-- START Public Methods -->
+### Public Methods
+
+- public string GetMacFromArpTable(string ipaddress)
+- public void ResolveHostData()
+- public void SendText(string text)
+- public void GetIpConfig()
+- public void GetModel()
+- public void GetFirmware()
+- public void GetHostname()
+- public void ReportDeviceInfo()
+- public void UpdateDeviceInfo()
+- public void ExecuteSwitch(object inputSelector, object outputSelector, eRoutingSignalType signalType)
+- public void ExecuteNumericSwitch(ushort input, ushort output, eRoutingSignalType type)
+- public void PollRouteStatus()
+- public void PollInputStatus()
+- public void HdBaseTInput1()
+- public void HdBaseTInput2()
+- public void HdmiInput3()
+- public void ExecuteSwitch(object inputSelector, object outputSelector, eRoutingSignalType signalType)
+- public void ExecuteNumericSwitch(ushort input, ushort output, eRoutingSignalType type)
+- public void PollRouteStatus()
+- public void PollInputStatus()
+- public void HdBaseTInput1()
+- public void HdmiInput2()
+- public void ExecuteSwitch(object inputSelector, object outputSelector, eRoutingSignalType signalType)
+- public void ExecuteNumericSwitch(ushort input, ushort output, eRoutingSignalType type)
+- public void UsbCInput1()
+- public void HdmiInput2()
+- public void PollRouteStatus()
+- public void PollInputStatus()
+- public void PollPower()
+- public void PowerOff()
+- public void PowerOn()
+- public void PowerToggle()
+- public void ExecuteSwitch(object inputSelector, object outputSelector, eRoutingSignalType signalType)
+- public void ExecuteNumericSwitch(ushort input, ushort output, eRoutingSignalType type)
+- public void UsbCInput1()
+- public void HdmiInput2()
+- public void HdmiInput3()
+- public void PollRouteStatus()
+- public void PollInputStatus()
+- public void PollPower()
+- public void PowerOff()
+- public void PowerOn()
+- public void PowerToggle()
+<!-- END Public Methods -->
+<!-- START Bool Feedbacks -->
+### Bool Feedbacks
+
+- HdBaseTInput1SyncFeedback
+- HdBaseTInput2SyncFeedback
+- HdmiInput3SyncFeedback
+- HdBaseTInput1SyncFeedback
+- HdmiInput2SyncFeedback
+- UsbCInput1SyncFeedback
+- HdmiInput2SyncFeedback
+- PowerIsOnFeedback
+- UsbCInput1SyncFeedback
+- HdmiInput2SyncFeedback
+- HdmiInput3SyncFeedback
+- PowerIsOnFeedback
+<!-- END Bool Feedbacks -->
+<!-- START Int Feedbacks -->
+### Int Feedbacks
+
+- StatusFeedback
+- AudioVideoSourceNumericFeedback
+- AudioVideoSourceNumericFeedback
+- VideoSourceNumericFeedback
+- AudioSourceNumericFeedback
+- VideoSourceNumericFeedback
+- AudioSourceNumericFeedback
+<!-- END Int Feedbacks -->
+<!-- START String Feedbacks -->
+### String Feedbacks
+
+- ModelFeedback
+- MakeFeedback
+<!-- END String Feedbacks -->
